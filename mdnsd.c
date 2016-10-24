@@ -79,6 +79,8 @@ struct ip_mreq_custom
 		pthread_attr_init(&attr); \
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 #define os_create_thread(fun, arg) pthread_create(&tid, &attr, (void *(*)(void *)) fun, (void *) arg)
+#define os_socket int
+#define os_select(nfds, readfds, writefds, errorfds, timeout) select(nfds, readfds, writefds, errorfds, timeout)
 #else
 #define os_mutex_init(lock) InitializeCriticalSectionAndSpinCount(lock, 0x00000400)
 #define os_mutex_lock(lock) EnterCriticalSection(lock)
@@ -87,6 +89,8 @@ struct ip_mreq_custom
 #define os_mutex CRITICAL_SECTION
 #define os_prepare_thread()
 #define os_create_thread(fun, arg) _beginthread( (void (*)(void *)) fun, 0, arg )
+#define os_socket SOCKET
+#define os_select(nfds, readfds, writefds, errorfds, timeout) select(0, readfds, writefds, errorfds, timeout)
 #endif
 
 
@@ -111,8 +115,8 @@ struct ip_mreq_custom
 
 struct mdnsd {
 	os_mutex data_lock;
-	int sockfd;
-	int notify_pipe[2];
+	os_socket sockfd;
+	os_socket notify_pipe[2];
 	int stop_flag;
 
 	struct rr_group *group;
@@ -130,8 +134,8 @@ struct mdns_service {
 
 #define log_message(loglevel, format, ...) fprintf (stderr, format, ##__VA_ARGS__)
 
-static int create_recv_sock(void) {
-	int sd = socket(AF_INET, SOCK_DGRAM, 0);
+static os_socket create_recv_sock(void) {
+	os_socket sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) {
 		log_message(LOG_ERR, "recv socket(): %s", strerror(errno));
 		return sd;
@@ -182,7 +186,7 @@ static int create_recv_sock(void) {
 	return sd;
 }
 
-static long int send_packet(int fd, const void *data, size_t len) {
+static long int send_packet(os_socket fd, const void *data, size_t len) {
 	static struct sockaddr_in toaddr;
 	if (toaddr.sin_family != AF_INET) {
 		memset(&toaddr, 0, sizeof(struct sockaddr_in));
@@ -359,7 +363,7 @@ static int process_mdns_pkt(struct mdnsd *svr, struct mdns_pkt *pkt, struct mdns
 	return 0;
 }
 
-static int create_pipe(int handles[2]) {
+static int create_pipe(os_socket handles[2]) {
 #ifdef _WIN32
 	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == INVALID_SOCKET) {
@@ -404,7 +408,7 @@ static int create_pipe(int handles[2]) {
 #endif
 }
 
-static long int read_pipe(int s, char* buf, size_t len) {
+static long int read_pipe(os_socket s, char* buf, size_t len) {
 #ifdef _WIN32
 	int ret = recv(s, buf, len, 0);
 	if (ret < 0 && WSAGetLastError() == WSAECONNRESET) {
@@ -416,7 +420,7 @@ static long int read_pipe(int s, char* buf, size_t len) {
 #endif
 }
 
-static long int write_pipe(int s, char* buf, size_t len) {
+static long int write_pipe(os_socket s, char* buf, size_t len) {
 #ifdef _WIN32
 	return send(s, buf, len, 0);
 #else
@@ -424,7 +428,7 @@ static long int write_pipe(int s, char* buf, size_t len) {
 #endif
 }
 
-static int close_pipe(int s) {
+static int close_pipe(os_socket s) {
 #ifdef _WIN32
 	return closesocket(s);
 #else
@@ -436,7 +440,7 @@ static int close_pipe(int s) {
 // also handles MDNS service announces
 static void main_loop(struct mdnsd *svr) {
 	fd_set sockfd_set;
-	int max_fd = svr->sockfd;
+	os_socket max_fd = svr->sockfd;
 	char notify_buf[2];	// buffer for reading of notify_pipe
 
 	void *pkt_buffer = malloc(PACKET_SIZE);
@@ -451,7 +455,7 @@ static void main_loop(struct mdnsd *svr) {
 		FD_ZERO(&sockfd_set);
 		FD_SET((unsigned int) svr->sockfd, &sockfd_set);
 		FD_SET((unsigned int) svr->notify_pipe[0], &sockfd_set);
-		select(max_fd + 1, &sockfd_set, NULL, NULL, NULL);
+		os_select(max_fd + 1, &sockfd_set, NULL, NULL, NULL);
 
 		if (FD_ISSET((unsigned int) svr->notify_pipe[0], &sockfd_set)) {
 			// flush the notify_pipe
