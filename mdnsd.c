@@ -195,7 +195,7 @@ static long int send_packet(os_socket fd, const void *data, size_t len) {
 		toaddr.sin_addr.s_addr = inet_addr(MDNS_ADDR);
 	}
 
-	return sendto(fd, data, len, 0, (struct sockaddr *) &toaddr, sizeof(struct sockaddr_in));
+	return sendto(fd, data, (int) len, 0, (struct sockaddr *) &toaddr, sizeof(struct sockaddr_in));
 }
 
 // populate the specified list which matches the RR name and type
@@ -410,7 +410,7 @@ static int create_pipe(os_socket handles[2]) {
 
 static long int read_pipe(os_socket s, char* buf, size_t len) {
 #ifdef _WIN32
-	int ret = recv(s, buf, len, 0);
+	int ret = recv(s, buf, (int) len, 0);
 	if (ret < 0 && WSAGetLastError() == WSAECONNRESET) {
 		ret = 0;
 	}
@@ -422,7 +422,7 @@ static long int read_pipe(os_socket s, char* buf, size_t len) {
 
 static long int write_pipe(os_socket s, char* buf, size_t len) {
 #ifdef _WIN32
-	return send(s, buf, len, 0);
+	return send(s, buf, (int) len, 0);
 #else
 	return write(s, buf, len);
 #endif
