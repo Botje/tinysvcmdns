@@ -79,6 +79,7 @@ struct ip_mreq_custom
 		pthread_attr_init(&attr); \
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 #define os_create_thread(fun, arg) pthread_create(&tid, &attr, (void *(*)(void *)) fun, (void *) arg)
+#define os_create_thread_successful(fun, arg) (os_create_thread(fun, arg) == 0)
 #define os_socket int
 #define os_select(nfds, readfds, writefds, errorfds, timeout) select(nfds, readfds, writefds, errorfds, timeout)
 #else
@@ -89,6 +90,7 @@ struct ip_mreq_custom
 #define os_mutex CRITICAL_SECTION
 #define os_prepare_thread()
 #define os_create_thread(fun, arg) _beginthread( (void (*)(void *)) fun, 0, arg )
+#define os_create_thread_successful(fun, arg) (os_create_thread(fun, arg) != -1)
 #define os_socket SOCKET
 #define os_select(nfds, readfds, writefds, errorfds, timeout) select(0, readfds, writefds, errorfds, timeout)
 #endif
@@ -670,7 +672,7 @@ struct mdnsd *mdnsd_start(void) {
 	os_mutex_init(&server->data_lock);
 
 	os_prepare_thread();
-	if (os_create_thread(main_loop, server) != 0) {
+	if (!os_create_thread_successful(main_loop, server)) {
 		os_mutex_destroy(&server->data_lock);
 		free(server);
 		return NULL;
