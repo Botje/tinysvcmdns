@@ -146,8 +146,6 @@ uint8_t *create_label(const char *txt) {
 
 	assert(txt != NULL);
 	len = strlen(txt);
-	if (len > 63)
-		return NULL;
 
 	s = malloc(len + 2);
 	s[0] = (uint8_t)len;
