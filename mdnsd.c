@@ -81,6 +81,7 @@ struct ip_mreq_custom
 #define os_create_thread(fun, arg) pthread_create(&tid, &attr, (void *(*)(void *)) fun, (void *) arg)
 #define os_create_thread_successful(fun, arg) (os_create_thread(fun, arg) == 0)
 #define os_socket int
+#define os_invalid_socket(sock) ((sock) < 0)
 #define os_select(nfds, readfds, writefds, errorfds, timeout) select(nfds, readfds, writefds, errorfds, timeout)
 #else
 #define os_mutex_init(lock) InitializeCriticalSectionAndSpinCount(lock, 0x00000400)
@@ -92,6 +93,7 @@ struct ip_mreq_custom
 #define os_create_thread(fun, arg) _beginthread( (void (*)(void *)) fun, 0, arg )
 #define os_create_thread_successful(fun, arg) (os_create_thread(fun, arg) != -1)
 #define os_socket SOCKET
+#define os_invalid_socket(sock) ((sock) == INVALID_SOCKET)
 #define os_select(nfds, readfds, writefds, errorfds, timeout) select(0, readfds, writefds, errorfds, timeout)
 #endif
 
@@ -138,7 +140,7 @@ struct mdns_service {
 
 static os_socket create_recv_sock(void) {
 	os_socket sd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sd < 0) {
+	if (os_invalid_socket(sd)) {
 		log_message(LOG_ERR, "recv socket(): %s", strerror(errno));
 		return sd;
 	}
@@ -368,7 +370,7 @@ static int process_mdns_pkt(struct mdnsd *svr, struct mdns_pkt *pkt, struct mdns
 static int create_pipe(os_socket handles[2]) {
 #ifdef _WIN32
 	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock == INVALID_SOCKET) {
+	if (os_invalid_socket(sock)) {
 		return -1;
 	}
 	struct sockaddr_in serv_addr;
@@ -389,7 +391,7 @@ static int create_pipe(os_socket handles[2]) {
 		closesocket(sock);
 		return -1;
 	}
-	if ((handles[1] = socket(PF_INET, SOCK_STREAM, 0)) == (int)INVALID_SOCKET) {
+	if (os_invalid_socket(handles[1] = socket(PF_INET, SOCK_STREAM, 0))) {
 		closesocket(sock);
 		return -1;
 	}
@@ -397,7 +399,7 @@ static int create_pipe(os_socket handles[2]) {
 		closesocket(sock);
 		return -1;
 	}
-	if ((handles[0] = accept(sock, (struct sockaddr*)&serv_addr, &len)) == (int)INVALID_SOCKET) {
+	if (os_invalid_socket(handles[0] = accept(sock, (struct sockaddr*)&serv_addr, &len))) {
 		closesocket((SOCKET)handles[1]);
 		handles[1] = (int)INVALID_SOCKET;
 		closesocket(sock);
@@ -663,7 +665,7 @@ struct mdnsd *mdnsd_start(void) {
 	}
 
 	server->sockfd = create_recv_sock();
-	if (server->sockfd < 0) {
+	if (os_invalid_socket(server->sockfd)) {
 		log_message(LOG_ERR, "unable to create recv socket");
 		free(server);
 		return NULL;
