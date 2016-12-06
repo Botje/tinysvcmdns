@@ -199,7 +199,7 @@ static long int send_packet(os_socket fd, const void *data, size_t len) {
 		toaddr.sin_addr.s_addr = inet_addr(MDNS_ADDR);
 	}
 
-	return sendto(fd, data, (int) len, 0, (struct sockaddr *) &toaddr, sizeof(struct sockaddr_in));
+	return sendto(fd, data, len, 0, (struct sockaddr *) &toaddr, sizeof(struct sockaddr_in));
 }
 
 // populate the specified list which matches the RR name and type
