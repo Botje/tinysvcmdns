@@ -91,7 +91,7 @@ struct ip_mreq_custom
 #define os_mutex CRITICAL_SECTION
 #define os_prepare_thread()
 #define os_create_thread(fun, arg) _beginthread( (void (*)(void *)) fun, 0, arg )
-#define os_create_thread_successful(fun, arg) (os_create_thread(fun, arg) != -1)
+#define os_create_thread_successful(fun, arg) (os_create_thread(fun, arg) != (uintptr_t)(-1))
 #define os_socket SOCKET
 #define os_invalid_socket(sock) ((sock) == INVALID_SOCKET)
 #define os_select(nfds, readfds, writefds, errorfds, timeout) select(0, readfds, writefds, errorfds, timeout)
